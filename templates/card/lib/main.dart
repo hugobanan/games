@@ -1,104 +1,68 @@
-// Copyright 2022, the Flutter project authors. Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-import 'dart:developer' as dev;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:logging/logging.dart';
-import 'package:provider/provider.dart';
 
-import 'app_lifecycle/app_lifecycle.dart';
-import 'audio/audio_controller.dart';
-import 'player_progress/player_progress.dart';
-import 'router.dart';
-import 'settings/settings.dart';
-import 'style/palette.dart';
-
-void main() async {
-  // Basic logging setup.
-  Logger.root.level = kDebugMode ? Level.FINE : Level.INFO;
-  Logger.root.onRecord.listen((record) {
-    dev.log(
-      record.message,
-      time: record.time,
-      level: record.level.value,
-      name: record.loggerName,
-    );
-  });
-
-  WidgetsFlutterBinding.ensureInitialized();
-  // Put game into full screen mode on mobile devices.
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  // Lock the game to portrait mode on mobile devices.
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  runApp(const MyApp());
+void main() {
+  runApp(ScrabbleApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
+class ScrabbleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return AppLifecycleObserver(
-      child: MultiProvider(
-        // This is where you add objects that you want to have available
-        // throughout your game.
-        //
-        // Every widget in the game can access these objects by calling
-        // `context.watch()` or `context.read()`.
-        // See `lib/main_menu/main_menu_screen.dart` for example usage.
-        providers: [
-          Provider(create: (context) => SettingsController()),
-          Provider(create: (context) => Palette()),
-          ChangeNotifierProvider(create: (context) => PlayerProgress()),
-          // Set up audio.
-          ProxyProvider2<AppLifecycleStateNotifier, SettingsController,
-              AudioController>(
-            create: (context) => AudioController(),
-            update: (context, lifecycleNotifier, settings, audio) {
-              audio!.attachDependencies(lifecycleNotifier, settings);
-              return audio;
-            },
-            dispose: (context, audio) => audio.dispose(),
-            // Ensures that music starts immediately.
-            lazy: false,
-          ),
-        ],
-        child: Builder(builder: (context) {
-          final palette = context.watch<Palette>();
+    return MaterialApp(
+      title: 'Scrabble',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: ScrabbleBoard(),
+    );
+  }
+}
 
-          return MaterialApp.router(
-            title: 'My Flutter Game',
-            theme: ThemeData.from(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: palette.darkPen,
-                surface: palette.backgroundMain,
+class ScrabbleBoard extends StatelessWidget {
+  final int boardSize = 15;
+
+  // Funkce pro vytváření jednoho políčka
+  Widget buildTile(BuildContext context, int x, int y) {
+    return Container(
+      margin: EdgeInsets.all(2),
+      width: 30,
+      height: 30,
+      color: Colors.grey[300],
+      child: Center(
+        child: Text(''), // Sem bude možné přidat písmeno
+      ),
+    );
+  }
+
+  // Funkce pro vytváření řádků desky
+  List<Widget> buildRow(BuildContext context, int y) {
+    return List.generate(boardSize, (x) => buildTile(context, x, y));
+  }
+
+  // Funkce pro vytváření celé desky
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Scrabble Board'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black, width: 2),
               ),
-              textTheme: TextTheme(
-                bodyMedium: TextStyle(color: palette.ink),
-              ),
-              useMaterial3: true,
-            ).copyWith(
-              // Make buttons more fun.
-              filledButtonTheme: FilledButtonThemeData(
-                style: FilledButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                ),
+              child: Column(
+                children: List.generate(boardSize, (y) => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: buildRow(context, y),
+                )),
               ),
             ),
-            routerConfig: router,
-          );
-        }),
+          ],
+        ),
       ),
     );
   }
